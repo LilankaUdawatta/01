@@ -35,6 +35,7 @@ public class UIHandler : MonoBehaviour {
 	public GameObject LoginObject, SignUpObject;
 	public GameObject NoInternetLogin, NoInternetSignUp;
 	public GameObject InternetFoundLogin, InternetFoundSignUp;
+    public GameObject WelcomeScreenObject;
 	private bool internetConnected = true;
 	private bool noInternetBanner = false;
 	public Text SignUpErrorText, SignInErrorText;
@@ -83,7 +84,7 @@ public class UIHandler : MonoBehaviour {
 					"Could not resolve all Firebase dependencies: " + dependencyStatus);
 			}
 		});
-		LogINScreen ();
+		WelcomeScreen ();
 		emailError = false;
 		passwordError = false;
         
@@ -261,11 +262,12 @@ public class UIHandler : MonoBehaviour {
 
 
 
-	void OnDestroy() {
-		auth.StateChanged -= AuthStateChanged;
-		auth.IdTokenChanged -= IdTokenChanged;
-		auth = null;
-	}
+//	void OnDestroy() {
+//		auth.StateChanged -= AuthStateChanged;
+//		auth.IdTokenChanged -= IdTokenChanged;
+//		auth = null;
+//        DebugLog("Auth State has been changed... Look Look Look it is very important");
+//	}
 
 	void DisableUI() {
 		//UIEnabled = false;
@@ -349,6 +351,7 @@ public class UIHandler : MonoBehaviour {
 				DebugLog("Signed in " + user.UserId);
 				displayName = user.DisplayName ?? "";
 				DisplayDetailedUserInfo(user, 1);
+                LoadScanUIScreen ();
 			}
 		}
 	}
@@ -536,12 +539,16 @@ public class UIHandler : MonoBehaviour {
 			string uid = user.UserId;
 		}
 	}
+    
+    public void GuestUserLogin()
+    {
+        LoadScanUIScreen ();
+    }
 
-
-
-	public void LogINScreen ()
-	{
-		LoginObject.SetActive(true);
+    public void WelcomeScreen()
+    {
+        WelcomeScreenObject.SetActive(true);
+        LoginObject.SetActive(false);
 		SignUpObject.SetActive(false);
 		//ScanUI.SetActive(false);
 		SignInErrorText.text = "";
@@ -553,10 +560,20 @@ public class UIHandler : MonoBehaviour {
 		InternetFoundLogin.SetActive(false);
 		InternetFoundSignUp.SetActive(false);
 		//InternetFoundScan.SetActive(false);
+    }
+
+	public void LogINScreen ()
+	{
+        WelcomeScreenObject.SetActive(false);
+		LoginObject.SetActive(true);
+		SignUpObject.SetActive(false);
+		//ScanUI.SetActive(false);
+		
 	}
 
 	public void SignUpScreen ()
 	{
+        WelcomeScreenObject.SetActive(false);
 		SignUpObject.SetActive(true);
 		LoginObject.SetActive(false);
 		//ScanUI.SetActive(false);

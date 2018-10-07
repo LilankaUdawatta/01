@@ -8,6 +8,8 @@ using Vuforia;
 using UnityEngine.UI;
 using System.Threading.Tasks;
 using UnityEngine.SceneManagement;
+using System.ComponentModel;
+using System.Net;
 
 /// <summary>
 /// This MonoBehaviour implements the Cloud Reco Event handling for this sample.
@@ -15,13 +17,16 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public class SimpleCloudHandler : MonoBehaviour, ICloudRecoEventHandler
 {
-	//protected TrackableBehaviour mTrackableBehaviour;
-
-	//private DefaultTrackableEventHandler TrackerScript;
-	
+		
 	public ImageTargetBehaviour ImageTargetTemplate;
 	private ImageTargetBehaviour imageTargetBehaviour;
 	private CloudRecoBehaviour mCloudRecoBehaviour;
+    
+    // Extended Tracking
+    // protected TrackableBehaviour mTrackableBehaviour;
+    // private DefaultTrackableEventHandler TrackerScript;
+    private ImageTargetBehaviour _imageTargetTemplate;
+    private bool _extendedTracking;
 
 
 	private bool mIsScanning = false;
@@ -55,6 +60,9 @@ public class SimpleCloudHandler : MonoBehaviour, ICloudRecoEventHandler
     private bool loded;
     //download asset bundle using WWW
     private WWW www;
+    
+    // Bytes
+    byte[] bytes;
 
 	public GameObject[] clone;
 	private int num;
@@ -78,7 +86,7 @@ public class SimpleCloudHandler : MonoBehaviour, ICloudRecoEventHandler
 	//to text to compare meta because stings cannot be compared
 
 	private string _artist, _artistEmail;
-	private bool _wLoad,_IsArt;	
+	private bool _wLoad,_IsArt, _isScript;	
     
     
     // Manager UI Screens
@@ -227,6 +235,9 @@ public class SimpleCloudHandler : MonoBehaviour, ICloudRecoEventHandler
 			}*/
 		//imageTargetBehaviour = new ImageTargetBehaviour();
 		newImageTarget = Instantiate(ImageTargetTemplate.gameObject) as GameObject;
+        _imageTargetTemplate = newImageTarget.GetComponent<ImageTargetBehaviour>();
+        //TrackerScript = newImageTarget.GetComponent<DefaultTrackableEventHandler>();
+        //mTrackableBehaviour = TrackerScript.mTrackableBehaviour;
 		
 
 		//ImageTargetBehaviour imageTargetBehaviour = mImageTracker.TargetFinder.EnableTracking(targetSearchResult, mParentOfImageTargetTemplate); 
@@ -247,6 +258,7 @@ public class SimpleCloudHandler : MonoBehaviour, ICloudRecoEventHandler
 			// enable the new result with the same ImageTargetBehaviour:
 			ObjectTracker tracker = TrackerManager.Instance.GetTracker<ObjectTracker>();
 			imageTargetBehaviour =	(ImageTargetBehaviour)tracker.TargetFinder.EnableTracking(targetSearchResult, newImageTarget); //mParentOfImageTargetTemplate
+            UseExtendedTracking(false);
 	//	}
 
 		//Check if the metadata isn't null
@@ -279,14 +291,22 @@ public class SimpleCloudHandler : MonoBehaviour, ICloudRecoEventHandler
 			url = ReadMetaUrl();
 			Debug.Log("Downloading from yes yes worked:"+ url);
 			Debug.Log("Dodhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh");
-			Debug.Log("22222222222222222222");
+			Debug.Log("Read Metadata here");
 			
-			if( _wLoad == true)
+			//if( _wLoad == true)
+            if( _wLoad )
 			{	
-				Debug.Log("333333333333333333");
-				
+				Debug.Log("Downloading Assets here");
 				StartCoroutine("DownloadBundle");
 			}
+            
+            if( _isScript )
+			{	
+				Debug.Log("Downloading Script now..");
+				StartCoroutine("DownloadBundleScript");
+                
+			}
+            
 		//}
 		
 		//Debug.Log("Downloading from yes yes worked:"+ matUrl);
@@ -313,6 +333,13 @@ public class SimpleCloudHandler : MonoBehaviour, ICloudRecoEventHandler
 	IEnumerator DownloadBundle (){
 
 		i = 0;
+        
+        //Check for Extended Tracking
+        if(_extendedTracking)
+        {
+            UseExtendedTracking(true);
+        }
+        
 
 		if(www != null)
 		{
@@ -345,11 +372,7 @@ public class SimpleCloudHandler : MonoBehaviour, ICloudRecoEventHandler
 		** Loading Materials Completed
 		***************************************************************************************************** */
 
-
-
-
-		// TrackerScript = ImageTargetTemplate.GetComponent<DefaultTrackableEventHandler>();
-		// mTrackableBehaviour = TrackerScript.mTrackableBehaviour;
+		
 
         // if (bundleHolder.transform.childCount > 0)
         //     Destroy(bundleHolder.transform.GetChild(0).gameObject);
@@ -431,6 +454,91 @@ public class SimpleCloudHandler : MonoBehaviour, ICloudRecoEventHandler
 
 		//asseBundle.Unload(false);
     }
+    
+
+/********************************************************************************************************************************
+
+** Download Load Script
+** Save in Application Data Path
+
+********************************************************************************************************************************/
+    
+   IEnumerator DownloadBundleScript (){
+
+		if(www != null)
+		{
+			www.Dispose();
+       		www = null;
+			asseBundle.Unload(false);
+		}
+
+
+        // Wait for the Caching system to be ready
+        while (!Caching.ready)
+            yield return null;
+ 
+        // Update url_loaded to prevent downloading assets again for the reco 
+        url_loaded = url;
+        //download AssetBundle
+        www = new WWW(url);
+        // using (www = new WWW(url)) -- Or use this
+        using (www)
+        {
+            
+            //wait for download
+            yield return www;
+            
+            Debug.Log ("Script Loaded Here ");
+            if (www.error != null)
+            throw new Exception ("WWW download had an error: " + www.error);
+
+            bytes = www.bytes;
+            Debug.Log (bytes);
+            File.WriteAllBytes(Application.streamingAssetsPath + "/" +  "JavaScript" + "/" + "ui_controller.javascript", bytes); 
+            
+            Debug.Log ("Script Name is ");
+            DirectoryInfo dir = new DirectoryInfo(Application.streamingAssetsPath + "/" +  "JavaScript");
+            FileInfo[] info = dir.GetFiles("*.*");
+            
+            foreach (FileInfo f in info)
+            {
+                Debug.Log(f.ToString());
+            }
+    
+            Debug.Log ("This is the end of the list");
+            DestroyLoadingAnimation (); 
+        }   
+    }      
+    
+    /*void DownloadBundleScript()
+{
+    WebClient client = new WebClient();
+    client.DownloadFileCompleted += new System.ComponentModel.AsyncCompletedEventHandler( DownloadFileCompleted );
+    //client.DownloadFileAsync ((new Uri (url, Application.dataPath + "/" + "ui_controller.javascript")));
+    Uri u = new UriBuilder(url).Uri;
+    client.DownloadFileAsync (u, Application.dataPath + "/" + "ui_controller.javascript");
+    //Debug.Log(Path.GetFileName(Application.dataPath));
+    while (client.IsBusy) { }
+    
+    DirectoryInfo dir = new DirectoryInfo(Application.dataPath);
+    FileInfo[] info = dir.GetFiles("*.*");
+ 
+    foreach (FileInfo f in info)
+    {
+        Debug.Log(f.ToString());
+    }
+}
+void DownloadFileCompleted(object sender, System.ComponentModel.AsyncCompletedEventArgs e)
+{
+    if (e.Error == null)
+    {
+       DestroyLoadingAnimation (); 
+    }
+} */
+    
+/********************************************************************************************************************************
+********************************************************************************************************************************/    
+
  
 
 	public string ReadMetaUrl()
@@ -452,6 +560,8 @@ public class SimpleCloudHandler : MonoBehaviour, ICloudRecoEventHandler
 			string d = loadedData.EditorMatUrl;
 			string e = loadedData.AndroidMatUrl;
 			string f = loadedData.iOSMatUrl;
+            _extendedTracking = loadedData.ExtendedTracking;
+            _isScript = loadedData.Is_Script;
 
 			Debug.Log("here here here here hereh here hereh ereh ereh ere");
 			Debug.Log(_wLoad);
@@ -488,6 +598,21 @@ public class SimpleCloudHandler : MonoBehaviour, ICloudRecoEventHandler
 			
 		//return returnMeta;	
 	}
+    
+    
+        // Starts/stops extended tracking for a given trackable
+    public void UseExtendedTracking(bool enabled) 
+    {    
+        if (enabled)
+        { 
+            _imageTargetTemplate.ImageTarget.StartExtendedTracking();
+        }
+        else
+        {
+            _imageTargetTemplate.ImageTarget.StopExtendedTracking();        
+        }
+        return;
+    }
 
 
 	void Templates()
@@ -500,9 +625,8 @@ public class SimpleCloudHandler : MonoBehaviour, ICloudRecoEventHandler
 
 		_FBButton = (GameObject)Instantiate(FBShareButton,transform.position, transform.rotation);
 		_FBButton.transform.parent = _ARCanvas.transform;
-
-		
 	}
+    
     
         public void loadSignInUPUI ()
     {
@@ -511,12 +635,14 @@ public class SimpleCloudHandler : MonoBehaviour, ICloudRecoEventHandler
         Debug.Log("Instantiated login scree NOWWWWWWWWWW!!!!!!!!!!!!!!!!!!!!");
     }
     
+    
      public void LoadLoadinganimation ()
     {
         GameObject LoadingAnimation = Resources.Load ("UIElements/ARLoader/ARLoaderPrefab") as GameObject;
         LoadingAnimation = Instantiate (LoadingAnimation);
         //Debug.Log("Instantiated login scree NOWWWWWWWWWW!!!!!!!!!!!!!!!!!!!!");
     }
+    
     
     public void DestroyLoadingAnimation ()
     {
@@ -529,12 +655,14 @@ public class SimpleCloudHandler : MonoBehaviour, ICloudRecoEventHandler
 	public class MetaDataFields
 	{
 		public bool  W_Download;
+        public bool Is_Script;
 		public string Editor;
 		public string Android;
 		public string iOS;
 		public string EditorMatUrl;
 		public string AndroidMatUrl;
 		public string iOSMatUrl;
+        public bool ExtendedTracking; //Add this to the meta vuforia as it is new!!!!!!!!!!!!
 		public bool Art;
 		public string Artist;
 		public string Artist_Email;
